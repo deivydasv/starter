@@ -1,4 +1,9 @@
-const onload = () => {
-    
+const load = () => {
+
 };
-document.readyState == 'loading' ? document.addEventListener('DOMContentLoaded', onload) : onload();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', load);
+}
+else {
+  load();
+}
