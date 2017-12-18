@@ -7,13 +7,14 @@ const gulp = require('gulp'),
     argv = require('yargs').argv,
     bump = require('gulp-bump'),
     fs = require('fs'),
-    run_sequence = require('run-sequence'),
+    runSequence = require('run-sequence'),
     git = require('gulp-git'),
     replace = require('gulp-replace'),
     changed = require('gulp-changed'),
 
     htmlPartial = require('gulp-html-partial'),
     htmlBeautify = require('gulp-html-beautify'),
+    w3cjs = require('gulp-w3cjs'),
 
     sass = require('gulp-sass'),
     autoprefixer = require('gulp-autoprefixer'),
@@ -23,6 +24,7 @@ const gulp = require('gulp'),
 
     uglify = require('gulp-uglify'),
     babel = require('gulp-babel'),
+    eslint = require('gulp-eslint'),
 
     imagemin = require('gulp-imagemin'),
       
@@ -60,6 +62,13 @@ gulp.task('html', function () {
 });
 
 
+gulp.task('html-lint', function () {
+    return gulp.src('dist/**/*.html')
+    .pipe(plumber())
+        .pipe(w3cjs())
+        .pipe(w3cjs.reporter());
+});
+
 
 
 // STYLES
@@ -74,7 +83,6 @@ gulp.task('styles', function () {
             precision: 4
         }))
         .pipe(autoprefixer({
-            browsers: ['last 2 versions'],
             flexbox: 'no-2009'
         }))
         //.pipe(concat( pkg().name.toLowerCase() + '.css'))
@@ -93,7 +101,6 @@ gulp.task('styles-minify', function () {
             precision: 4
         }))
             .pipe(autoprefixer({
-            browsers: ['last 2 versions'],
             flexbox: 'no-2009'
         }))
         .pipe(csso({
@@ -152,13 +159,17 @@ gulp.task('scripts-minify', function () {
         .pipe(gulp.dest('dist/js'));
 });
 
+gulp.task('scripts-lint', function(){
+    return gulp.src(['src/js/**/*.js'])
+        .pipe(eslint())
+        .pipe(eslint.format());
+});
 
 
 
 
 // IMAGES
 
-//https://www.npmjs.com/package/gulp-svgstore
 gulp.task('images', function () {
     return gulp.src(['src/img/**/*.{jpg,jpeg,png,gif,svg}'])
         .pipe(plumber())
@@ -183,6 +194,7 @@ gulp.task('images', function () {
         .pipe(gulp.dest('dist/img'))
         .pipe(connect.reload())
 });
+// @TODO: https://www.npmjs.com/package/gulp-svgstore
 
 
 // MISC
@@ -204,27 +216,21 @@ gulp.task('default', ['del'], function () {
 
     gulp.watch(['src/**/*.html'], ['html']);
     gulp.watch(['src/**/*.scss'], ['styles', 'styles-lint']);
-    gulp.watch(['src/**/*.js'], ['scripts']);
+    gulp.watch(['src/**/*.js'], ['scripts', 'scripts-lint']);
     gulp.watch(['src/img/**/*'], ['images']);
 });
 
-
-// gulp build (default: patch)
+// gulp build (default: --t=patch --msg="version x.x.x")
 // gulp build --t=prerelease
 // gulp build --t=patch
 // gulp build --t=minor
 // gulp build --t=major
+// gulp build --msg="Commit message"
 
-gulp.task('build', function () {
-    run_sequence(
-        'del',
+gulp.task('build', function(callback) {
+    runSequence(
         'bump',
-        'html',
-        'styles',
-        'scripts',
-        'styles-minify',
-        'scripts-minify',
-        'images',
+        'dist',
         //'changelog',
         'commit-changes',
         'push-changes',
@@ -235,6 +241,29 @@ gulp.task('build', function () {
                 console.log(error.message);
             } else {
                 console.log(pkg().version + ' BUILD FINISHED SUCCESSFULLY');
+                callback();
+            }
+        });
+});
+
+gulp.task('dist', function(callback){
+    runSequence(
+        'del',
+        'html',
+        'html-lint',
+        'styles',
+        'styles-lint',
+        'styles-minify',
+        'scripts',
+        'scripts-lint',
+        'scripts-minify',
+        'images',
+        function (error) {
+            if (error) {
+                console.log(error.message);
+            }
+            else {
+                callback();
             }
         });
 });
@@ -250,7 +279,7 @@ gulp.task('bump', function () {
 gulp.task('commit-changes', function () {
     return gulp.src('.')
         .pipe(git.add())
-        .pipe(git.commit('version: ' + pkg().version));
+        .pipe(git.commit(argv.msg || 'version: ' + pkg().version));
 });
 
 gulp.task('push-changes', function (cb) {
@@ -286,3 +315,7 @@ gulp.task('create-new-tag', function (cb) {
 //        preset: 'test' // Or to any other commit message convention you use.
 //    }, done);
 //});
+
+// @TODO:
+// gulp-uncss - remove unused css
+// gulp-stylestats - css stats

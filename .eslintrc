@@ -1,0 +1,13 @@
+{
+    "env": {
+        "browser": true
+    },
+    // "parser": "babel-eslint",
+    "extends": "airbnb-base",
+    "rules": {
+        "brace-style": ["error", "stroustrup"],
+        "linebreak-style": 0,
+        "no-unused-vars": 1
+        // "indent": 0,
+    } 
+}
